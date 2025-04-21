@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bird Gacha</title>
+    <style>
+        body {
+            background-color: #fdf6e3;
+            font-family: 'Comic Sans MS', cursive;
+            text-align: center;
+        }
+
+        h1 { font-size: 3em; margin-top: 30px; }
+        h2 { color: #e91e63; }
+
+        #roll-btn {
+            padding: 10px 20px;
+            font-size: 1.5em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        #roll-btn:hover { background-color: #45a049; }
+
+        .bird-container {
+            width: 80%;
+            max-width: 400px;
+            margin: auto;
+            aspect-ratio: 4 / 3;
+            background-color: #ddd;
+            overflow: hidden;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .bird-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #bird-rarity { font-size: 1.3em; margin-top: 10px; }
+
+        @keyframes pop {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-effect {
+            animation: pop 0.3s ease-in-out;
+        }
+
+        #leaderboard {
+            margin-top: 30px;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            font-size: 1em;
+            border-radius: 5px;
+            border: 1px solid #aaa;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>BIRD GATCH RAWWWWWWW</h1>
+    <h2>GIVE ME YOUR MONEY</h2>
+
+    <input type="text" id="username" placeholder="Enter your name" />
+    <br><br>
+    <button id="roll-btn">🎲 Roll for Bird</button>
+
+    <div id="bird-display">
+        <div class="bird-container">
+            <img id="bird-img" src="https://c.tenor.com/jwEnVe99yrcAAAAd/tenor.gif" alt="dancing pigeon">
+        </div>
+        <p id="bird-rarity"></p>
+    </div>
+
+    <div id="leaderboard">
+        <h3>🏆 Leaderboard</h3>
+        <ul id="leaderboard-list"></ul>
+    </div>
+
+    <script>
+        const commonBirds = [
+            { img: "https://i.imgur.com/GH5nJ8P.jpeg", name: "Basic Pigeon", rarity: "COMMON" },
+            { img: "https://i.imgur.com/7XqJY8f.jpeg", name: "Sparrow", rarity: "COMMON" },
+            { img: "https://i.imgur.com/RtPj8vC.jpeg", name: "Seagull", rarity: "COMMON" },
+            { img: "https://i.imgur.com/YBf5BqZ.jpeg", name: "Duck", rarity: "COMMON" },
+            { img: "https://i.imgur.com/9Kt0xLh.jpeg", name: "Crow", rarity: "COMMON" }
+        ];
+
+        const rareBirds = [
+            { img: "https://i.imgur.com/aLhPzXm.jpeg", name: "Blue Jay", rarity: "RARE" },
+            { img: "https://i.imgur.com/KmBsqBp.jpeg", name: "Parrot", rarity: "RARE" },
+            { img: "https://i.imgur.com/mYV5T3F.jpeg", name: "Hawk", rarity: "RARE" },
+            { img: "https://i.imgur.com/kN1k8fz.jpeg", name: "Flamingo", rarity: "RARE" },
+            { img: "https://i.imgur.com/o4FkKqz.jpeg", name: "Woodpecker", rarity: "RARE" }
+        ];
+
+        const superRareBirds = [
+            { img: "https://i.imgur.com/dC6NQQu.jpeg", name: "Phoenix", rarity: "SUPER RARE" },
+            { img: "https://i.imgur.com/W9Xn6Rv.jpeg", name: "Golden Eagle", rarity: "SUPER RARE" },
+            { img: "https://i.imgur.com/QbZ7aBp.jpeg", name: "Snowy Owl", rarity: "SUPER RARE" },
+            { img: "https://i.imgur.com/P5xFW9o.jpeg", name: "Peacock King", rarity: "SUPER RARE" },
+            { img: "https://i.imgur.com/6uWjOdC.jpeg", name: "Mystic Swan", rarity: "SUPER RARE" }
+        ];
+
+        function getWeightedRandomBird() {
+            const rand = Math.random() * 100;
+            let pool;
+
+            if (rand < 1) {
+                pool = superRareBirds;
+            } else if (rand < 10) {
+                pool = rareBirds;
+            } else {
+                pool = commonBirds;
+            }
+
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        document.getElementById("roll-btn").onclick = function () {
+            const username = document.getElementById("username").value.trim();
+            if (!username) {
+                alert("Please enter your name before rolling!");
+                return;
+            }
+
+            const bird = getWeightedRandomBird();
+            const img = document.getElementById("bird-img");
+
+            img.src = bird.img;
+            document.getElementById("bird-rarity").innerText = `${bird.rarity} — ${bird.name}`;
+
+            img.classList.remove("pop-effect");
+            void img.offsetWidth;
+            img.classList.add("pop-effect");
+
+            if (bird.rarity === "SUPER RARE") {
+                sendSuperRarePull(username);
+            }
+        };
+
+        function sendSuperRarePull(username) {
+            fetch("http://localhost:5000/pull", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: username, rarity: "SUPER RARE" })
+            })
+            .then(res => res.json())
+            .then(() => loadLeaderboard());
+        }
+
+        function loadLeaderboard() {
+            fetch("http://localhost:5000/leaderboard")
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById("leaderboard-list");
+                list.innerHTML = "";
+                data.forEach(([name, score]) => {
+                    const item = document.createElement("li");
+                    item.textContent = `${name}: ${score}`;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        // Initial load
+        window.onload = loadLeaderboard;
+    </script>
+</body>
+</html>

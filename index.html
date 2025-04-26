@@ -95,6 +95,8 @@
     </div>
 
     <script>
+        let cachedCity = null;
+
         const commonBirds = [
             { img: "https://i.imgur.com/GH5nJ8P.jpeg", name: "Basic Pigeon", rarity: "COMMON" },
             { img: "https://i.imgur.com/7XqJY8f.jpeg", name: "Sparrow", rarity: "COMMON" },
@@ -119,20 +121,14 @@
             { img: "https://i.imgur.com/6uWjOdC.jpeg", name: "Mystic Swan", rarity: "SUPER RARE" }
         ];
 
-        function getWeightedRandomBird() {
-            const rand = Math.random() * 100;
-            let pool;
-
-            if (rand < 1) {
-                pool = superRareBirds;
-            } else if (rand < 10) {
-                pool = rareBirds;
-            } else {
-                pool = commonBirds;
-            }
-
-            return pool[Math.floor(Math.random() * pool.length)];
-        }
+        const localSuperRareBirds = {
+            "los angeles": [
+                { img: "https://upload.wikimedia.org/wikipedia/commons/7/75/California_Condor_Gymnogyps_californianus_Flight_2.jpg", name: "California Condor", rarity: "SUPER RARE" }
+            ],
+            "new york": [
+                { img: "https://upload.wikimedia.org/wikipedia/commons/8/84/Peregrine_Falcon_with_prey.jpg", name: "Peregrine Falcon", rarity: "SUPER RARE" }
+            ]
+        };
 
         document.getElementById("roll-btn").onclick = function () {
             const username = document.getElementById("username").value.trim();
@@ -141,12 +137,62 @@
                 return;
             }
 
-            const bird = getWeightedRandomBird();
+            if (cachedCity) {
+                rollBird(username, cachedCity);
+            } else {
+                detectLocationAndRoll(username);
+            }
+        };
+
+        function detectLocationAndRoll(username) {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(success => {
+                const { latitude, longitude } = success.coords;
+                fetchCityFromCoords(latitude, longitude, city => {
+                    rollBird(username, city);
+                });
+            }, () => {
+                alert("Unable to retrieve your location");
+            });
+        }
+
+        function fetchCityFromCoords(lat, lon, callback) {
+            const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    const city = data.address.city || data.address.town || data.address.village || "unknown";
+                    cachedCity = city.toLowerCase(); // store for reuse
+                    callback(cachedCity);
+                })
+                .catch(() => {
+                    alert("Could not detect your city");
+                    callback("unknown");
+                });
+        }
+
+        function rollBird(username, city) {
+            const rand = Math.random() * 100;
+            let pool;
+
+            if (rand < 3) {
+                const localPool = localSuperRareBirds[city] || [];
+                pool = localPool.length > 0 ? localPool : superRareBirds;
+            } else if (rand < 10) {
+                pool = rareBirds;
+            } else {
+                pool = commonBirds;
+            }
+
+            const bird = pool[Math.floor(Math.random() * pool.length)];
             const img = document.getElementById("bird-img");
 
             img.src = bird.img;
             document.getElementById("bird-rarity").innerText = `${bird.rarity} — ${bird.name}`;
-
             img.classList.remove("pop-effect");
             void img.offsetWidth;
             img.classList.add("pop-effect");
@@ -154,10 +200,10 @@
             if (bird.rarity === "SUPER RARE") {
                 sendSuperRarePull(username);
             }
-        };
+        }
 
         function sendSuperRarePull(username) {
-            fetch("http://localhost:5000/pull", {
+            fetch("http://localhost:5000//pull", {   //<!-- Replace IP if needed! -->
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username: username, rarity: "SUPER RARE" })
@@ -167,7 +213,7 @@
         }
 
         function loadLeaderboard() {
-            fetch("http://localhost:5000/leaderboard")
+            fetch("http://localhost:5000//leaderboard")  //<!-- Replace IP if needed! -->
             .then(res => res.json())
             .then(data => {
                 const list = document.getElementById("leaderboard-list");
@@ -180,7 +226,7 @@
             });
         }
 
-        // Initial load
+        // Load leaderboard on page load
         window.onload = loadLeaderboard;
     </script>
 </body>

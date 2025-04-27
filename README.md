@@ -11,7 +11,11 @@ on your VM.
 Get the files into your VM, and update the IP address on index.html. 
 
 Start the Server: 
+
+Start running the server python server.py
+
 cd ~/bird-gacha
+
 python3 -m http.server 8000
 
 Anyone else on the network can join thorugh http://192.168.1.42:8000/index.html

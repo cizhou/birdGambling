@@ -95,6 +95,69 @@
             color: #888;
             font-style: italic;
         }
+
+        .bird-card {
+            width: 300px;
+            margin: 20px auto;
+            border: 4px solid #333;
+            border-radius: 20px;
+            background: linear-gradient(145deg, #f9f6f2, #e0e0e0);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+            overflow: hidden;
+            font-family: 'Comic Sans MS', cursive;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+
+        .bird-card:hover {
+            transform: scale(1.05);
+        }
+
+        .card-header {
+            background: #ffeb3b;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px; /* ← fixed height for the art box */
+            background-color: #ccc; /* fallback color while loading */
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* ✨ key: scale the bird to fill the box nicely */
+        }
+
+        .card-description {
+            padding: 10px;
+            font-size: 0.9em;
+            text-align: center;
+            color: #555;
+        }
+
+        #bird-rarity {
+            background-color: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
+
+        .super-rare-card {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            box-shadow: 0 0 20px 5px rgba(255,215,0,0.7);
+        }
+
     </style>
 </head>
 <body>
@@ -106,10 +169,18 @@
     <button id="roll-btn">🎲 Roll for Bird</button>
 
     <div id="bird-display">
-        <div class="bird-container" id="bird-container">
-            <img id="bird-img" src="https://c.tenor.com/jwEnVe99yrcAAAAd/tenor.gif" alt="dancing pigeon">
+        <div class="bird-card" id="bird-card">
+            <div class="card-header">
+                <h2 id="bird-name">Bird Name</h2>
+                <span id="bird-rarity">RARITY</span>
+            </div>
+            <div class="card-image">
+                <img id="bird-img" src="https://c.tenor.com/jwEnVe99yrcAAAAd/tenor.gif" alt="dancing pigeon">
+            </div>
+            <div class="card-description" id="bird-description">
+                A beautiful bird spotted in the wild!
+            </div>
         </div>
-        <p id="bird-rarity"></p>
     </div>
 
     <div id="leaderboard">
@@ -149,13 +220,60 @@
             { img: "https://i.imgur.com/6uWjOdC.jpeg", name: "Mystic Swan", rarity: "SUPER RARE" }
         ];
 
-        function getWeightedRandomBird() {
+        const localSuperRareBirds = {
+             "los angeles": [
+                 { img: "https://upload.wikimedia.org/wikipedia/commons/7/75/California_Condor_Gymnogyps_californianus_Flight_2.jpg", name: "California Condor", rarity: "SUPER RARE" }
+             ],
+             "new york": [
+                 { img: "https://upload.wikimedia.org/wikipedia/commons/8/84/Peregrine_Falcon_with_prey.jpg", name: "Peregrine Falcon", rarity: "SUPER RARE" }
+             ]
+        };
+
+        let cachedCity = null;
+ 
+        function detectLocationAndRoll(username) {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser");
+                rollBird(username, "unknown"); // fallback
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(success => {
+                const { latitude, longitude } = success.coords;
+                fetchCityFromCoords(latitude, longitude, city => {
+                    cachedCity = city;
+                    rollBird(username, city);
+                });
+            }, () => {
+                alert("Unable to retrieve your location");
+                rollBird(username, "unknown"); // fallback
+            });
+        }
+
+ 
+         function fetchCityFromCoords(lat, lon, callback) {
+             const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+             fetch(url)
+                 .then(res => res.json())
+                 .then(data => {
+                     const city = data.address.city || data.address.town || data.address.village || "unknown";
+                     cachedCity = city.toLowerCase(); // store for reuse
+                     callback(cachedCity);
+                 })
+                 .catch(() => {
+                     alert("Could not detect your city");
+                     callback("unknown");
+                 });
+         }        
+
+         function getWeightedRandomBird(city) {
             const rand = Math.random() * 100;
             let pool;
 
-            if (rand < 1) {
-                pool = superRareBirds;
-            } else if (rand < 10) {
+            if (rand < 5) {
+                const localPool = localSuperRareBirds[city] || [];
+                pool = superRareBirds.concat(localPool); // combine the global + local birds
+            } else if (rand < 20) {
                 pool = rareBirds;
             } else {
                 pool = commonBirds;
@@ -164,6 +282,7 @@
             return pool[Math.floor(Math.random() * pool.length)];
         }
 
+
         document.getElementById("roll-btn").onclick = function () {
             const username = document.getElementById("username").value.trim();
             if (!username) {
@@ -171,35 +290,52 @@
                 return;
             }
 
-            const bird = getWeightedRandomBird();
+            if (cachedCity) {
+                rollBird(username, cachedCity);
+            } else {
+                detectLocationAndRoll(username);
+            }
+        };
+
+
+        function rollBird(username, city) {
+            const bird = getWeightedRandomBird(city); // pass city into random picker
             const img = document.getElementById("bird-img");
-            const container = document.getElementById("bird-container");
+            const nameEl = document.getElementById("bird-name");
+            const rarityEl = document.getElementById("bird-rarity");
+            const descEl = document.getElementById("bird-description");
+            const card = document.getElementById("bird-card");
             const sparkleSound = document.getElementById("sparkle-sound");
 
             img.src = bird.img;
-            document.getElementById("bird-rarity").innerText = `${bird.rarity} — ${bird.name}`;
+            nameEl.innerText = bird.name;
+            rarityEl.innerText = bird.rarity;
+            descEl.innerText = `A wonderful ${bird.name} appears!`;
 
             img.classList.remove("pop-effect");
             void img.offsetWidth;
             img.classList.add("pop-effect");
 
+            // Special stuff if it's SUPER RARE
             if (bird.rarity === "SUPER RARE") {
+                card.classList.add("super-rare-card");
                 sendSuperRarePull(username);
 
-                // Play sparkle sound
                 sparkleSound.play();
 
-                // Add sparkle overlay
                 const sparkle = document.createElement("div");
                 sparkle.className = "sparkle";
-                container.appendChild(sparkle);
+                card.appendChild(sparkle);
 
-                // Remove sparkle after animation
                 setTimeout(() => {
-                    container.removeChild(sparkle);
+                    card.removeChild(sparkle);
+                    card.classList.remove("super-rare-card");
                 }, 1500);
+            } else {
+                card.classList.remove("super-rare-card");
             }
-        };
+        }
+
 
         function sendSuperRarePull(username) {
             fetch(`${API_BASE}/pull`, {

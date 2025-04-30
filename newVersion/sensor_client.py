@@ -26,7 +26,7 @@ def read_light_sensor(mcp):
     lux_threshold = 80
     readings = []
 
-    for i in range(10):
+    for i in range(2):
         lux = mcp.read_adc(0)
         readings.append(lux)
         print(lux)
@@ -40,6 +40,21 @@ def read_light_sensor(mcp):
         print("Dark")
 
     return avg_lux
+
+def read_twists(mcp): 
+    total_twists = 0
+    last_twist = snd = mcp.read_adc(1)
+    for i in range(10):
+        snd = mcp.read_adc(1)
+        print(snd)
+        time.sleep(0.1)
+        total_twists += abs(last_twist - snd)
+
+    if total_twists > 500:
+      GPIO.output(11, GPIO.HIGH)
+      time.sleep(0.1)
+      GPIO.output(11, GPIO.LOW)
+    return total_twists
 
 
 def main():
@@ -61,15 +76,28 @@ def main():
         print(f"[RPI] Light reading: {light_value}")
 
         try:
-            resp = requests.post(f"{SERVER_URL}/update_light", json={
-                "rpi_id": RPI_ID,
-                "light": light_value,
-                "city": CITY
-            })
-            if resp.status_code == 200:
-                print("[RPI] Light and city updated successfully.")
-            else:
-                print(f"[RPI] Failed to update: {resp.status_code}")
+            if read_twists(mcp) > 500:
+                # send light
+                resp = requests.post(f"{SERVER_URL}/update_light", json={
+                    "rpi_id": RPI_ID,
+                    "light": light_value,
+                    "city": CITY
+                })
+                if resp.status_code == 200:
+                    print("[RPI] Light and city updated successfully.")
+                else:
+                    print(f"[RPI] Failed to update: {resp.status_code}")
+
+                # send 
+                resp = requests.post(f"{SERVER_URL}/gamble", json={
+                    "rpi_id": RPI_ID,
+                    "light": light_value,
+                    "city": CITY
+                })
+                if resp.status_code == 200:
+                    print("[RPI] Gambled successfully.")
+                else: 
+                    print(f"[RPI] Failed to gamble: {resp.status_code}")
         except Exception as e:
             print(f"[RPI] Error: {e}")
 

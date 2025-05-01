@@ -44,17 +44,18 @@ def read_light_sensor(mcp):
 def read_twists(mcp): 
     total_twists = 0
     last_twist = snd = mcp.read_adc(1)
-    for i in range(10):
+    while total_twists < 500:
         snd = mcp.read_adc(1)
         print(snd)
         time.sleep(0.1)
         total_twists += abs(last_twist - snd)
 
+    # not sure if needed
     if total_twists > 500:
       GPIO.output(11, GPIO.HIGH)
       time.sleep(0.1)
       GPIO.output(11, GPIO.LOW)
-    return total_twists
+    return True
 
 
 def main():
@@ -76,7 +77,7 @@ def main():
         print(f"[RPI] Light reading: {light_value}")
 
         try:
-            if read_twists(mcp) > 500:
+            if read_twists(mcp):
                 # send light
                 resp = requests.post(f"{SERVER_URL}/update_light", json={
                     "rpi_id": RPI_ID,

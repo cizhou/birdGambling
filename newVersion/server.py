@@ -2,8 +2,11 @@ from flask import Flask, request, jsonify, render_template_string
 import random
 import threading
 import json
+import requests
 
 app = Flask(__name__)
+
+url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{bird_name.replace(' ', '_')}"
 
 # === Data Structures ===
 rpi_data = {}  # {rpi_id: {"light": value, "city": value, "stats": {...}}}
@@ -11,15 +14,15 @@ bird_rarity_list = ["Common", "Rare", "Super Rare"]
 
 # Bird pools by rarity
 bird_pools = {
-    "Common": ["Pigeon", "Duck", "Crow"],
-    "Rare": ["Flamingo", "Eagle", "Swan"],
-    "Super Rare": ["Phoenix", "Golden Owl", "Mythic Crane"]
+    "Common": ["Columbidae", "Mallard", "American Crow", "Chicken", "Sparrow", "Robin"], # Columbidae == pigeon, Mallard == Duck
+    "Rare": ["Flamingo", "Eagle", "Swan", "Snowy Owl", "Peregrine Falcon"],
+    "Super Rare": ["Penguin", "Dodo", "Quetzal", "Peafowl"]
 }
 
 # Special Regional Birds
 regional_birds = {
-    "Los Angeles": "LA Golden Eagle",
-    "New York City": "NYC Diamond Pigeon"
+    "Los Angeles": "Anna's hummingbird",
+    "New York City": "American Goldfinch"
 }
 
 # Base odds for rarities
@@ -84,6 +87,25 @@ def weighted_random_choice(odds_dict, city):
 
     return random.choice(bird_pools[chosen_rarity])
 
+def get_bird_info(bird_name):
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{bird_name.replace(' ', '_')}"
+        resp = requests.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            return {
+                "title": data.get("title", bird_name),
+                "description": data.get("extract", "No description available."),
+                "image": data.get("thumbnail", {}).get("source", "")
+            }
+    except Exception as e:
+        print(f"Error fetching Wikipedia data: {e}")
+    return {
+        "title": bird_name,
+        "description": "No description available.",
+        "image": ""
+    }
+
 # === API Routes ===
 
 @app.route('/update_light', methods=['POST'])
@@ -116,6 +138,49 @@ def update_light():
 
     return jsonify({"status": "Light and City updated!"})
 
+# @app.route('/gamble', methods=['POST'])
+# def gamble():
+#     data = request.get_json()
+#     rpi_id = data.get("rpi_id")
+
+#     if not rpi_id or rpi_id not in rpi_data:
+#         return jsonify({"error": "Invalid or unknown rpi_id"}), 400
+
+#     with lock:
+#         light = rpi_data[rpi_id]["light"]
+#         city = rpi_data[rpi_id]["city"]
+#         stats = rpi_data[rpi_id]["stats"]
+
+#     odds = adjust_odds(light)
+#     bird = weighted_random_choice(odds, city)
+
+#     with lock:
+#         stats["last_bird"] = bird
+#         stats["all_birds"].append(bird)
+
+#         if bird in bird_pools["Super Rare"] or bird in regional_birds.values():
+#             stats["super_rares"] += 1
+
+#         # Determine rarity of won bird
+#         if bird in bird_pools["Common"]:
+#             bird_rarity = "Common"
+#         elif bird in bird_pools["Rare"]:
+#             bird_rarity = "Rare"
+#         else:
+#             bird_rarity = "Super Rare"
+
+#         # Compare rarity indexes
+#         current_best_index = bird_rarity_list.index(stats["rarest_bird"]) if stats["rarest_bird"] in bird_rarity_list else -1
+#         new_bird_index = bird_rarity_list.index(bird_rarity)
+
+#         if new_bird_index > current_best_index:
+#             stats["rarest_bird"] = bird_rarity
+
+#         save_data()
+
+#     return jsonify({"bird": bird, "stats": stats})
+
+
 @app.route('/gamble', methods=['POST'])
 def gamble():
     data = request.get_json()
@@ -131,15 +196,16 @@ def gamble():
 
     odds = adjust_odds(light)
     bird = weighted_random_choice(odds, city)
+    bird_info = get_bird_info(bird)  # <- Get image + description
 
     with lock:
         stats["last_bird"] = bird
         stats["all_birds"].append(bird)
+        stats["last_bird_info"] = bird_info # added here
 
         if bird in bird_pools["Super Rare"] or bird in regional_birds.values():
             stats["super_rares"] += 1
 
-        # Determine rarity of won bird
         if bird in bird_pools["Common"]:
             bird_rarity = "Common"
         elif bird in bird_pools["Rare"]:
@@ -147,16 +213,19 @@ def gamble():
         else:
             bird_rarity = "Super Rare"
 
-        # Compare rarity indexes
         current_best_index = bird_rarity_list.index(stats["rarest_bird"]) if stats["rarest_bird"] in bird_rarity_list else -1
         new_bird_index = bird_rarity_list.index(bird_rarity)
-
         if new_bird_index > current_best_index:
             stats["rarest_bird"] = bird_rarity
 
         save_data()
 
-    return jsonify({"bird": bird, "stats": stats})
+    return jsonify({
+        "bird": bird,
+        "stats": stats,
+        "info": bird_info  # <- added bird image/description
+    })
+
 
 @app.route('/stats/<rpi_id>', methods=['GET'])
 def stats(rpi_id):
@@ -193,7 +262,9 @@ def dashboard():
                     <th>Light Level</th>
                     <th>Super Rare Birds</th>
                     <th>Rarest Bird</th>
-                    <th>Last Bird Won</th>
+                    <th>Last Bird Name</th>
+                    <th>Image</th>
+                    <th>Description</th>
                 </tr>
             </thead>
             <tbody>
@@ -219,6 +290,8 @@ def dashboard():
                                 <td>${info.stats?.super_rares ?? 0}</td>
                                 <td>${info.stats?.rarest_bird ?? 'None'}</td>
                                 <td>${info.stats?.last_bird ?? 'None'}</td>
+                                <td><img src="${info.stats?.last_bird_info?.image ?? ''}" width="100" style="max-height:100px;" /></td>
+                                <td style="text-align: left;">${info.stats?.last_bird_info?.description ?? ''}</td>
                             `;
                             tbody.appendChild(row);
                         }

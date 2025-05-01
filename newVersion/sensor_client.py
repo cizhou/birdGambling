@@ -6,7 +6,7 @@ import RPi.GPIO as GPIO
 import Adafruit_GPIO.SPI as SPI
 import Adafruit_MCP3008
 
-SERVER_URL = "http://<your-server-ip>:5000"
+SERVER_URL = "http://10.208.48.165:5000"
 RPI_ID = "rpi-001"
 
 def get_city():
@@ -47,7 +47,7 @@ def read_twists(mcp):
     while total_twists < 500:
         snd = mcp.read_adc(1)
         print(snd)
-        time.sleep(0.1)
+        time.sleep(1)
         total_twists += abs(last_twist - snd)
 
     # not sure if needed
@@ -89,6 +89,8 @@ def main():
                 else:
                     print(f"[RPI] Failed to update: {resp.status_code}")
 
+
+                print("Sending gamble request...")
                 # send 
                 resp = requests.post(f"{SERVER_URL}/gamble", json={
                     "rpi_id": RPI_ID,
@@ -102,7 +104,7 @@ def main():
         except Exception as e:
             print(f"[RPI] Error: {e}")
 
-        time.sleep(5)
+        time.sleep(0.1)
 
 if __name__ == "__main__":
     main()

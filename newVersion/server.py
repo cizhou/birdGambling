@@ -6,23 +6,25 @@ import requests
 
 app = Flask(__name__)
 
-url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{bird_name.replace(' ', '_')}"
+# url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{bird_name.replace(' ', '_')}"
 
 # === Data Structures ===
 rpi_data = {}  # {rpi_id: {"light": value, "city": value, "stats": {...}}}
 bird_rarity_list = ["Common", "Rare", "Super Rare"]
 
 # Bird pools by rarity
+# Columbidae == pigeon, Mallard == Duck
 bird_pools = {
-    "Common": ["Columbidae", "Mallard", "American Crow", "Chicken", "Sparrow", "Robin"], # Columbidae == pigeon, Mallard == Duck
-    "Rare": ["Flamingo", "Eagle", "Swan", "Snowy Owl", "Peregrine Falcon"],
-    "Super Rare": ["Penguin", "Dodo", "Quetzal", "Peafowl"]
+    "Common": ["Columbidae", "Mallard", "American Crow", "Chicken", "Song Sparrow", "American Robin", 
+    "Red-tailed Hawk"], 
+    "Rare": ["Flamingo", "Eagle", "Swan", "Snowy Owl", "Peregrine Falcon", "Snowy Egret"],
+    "Super Rare": ["Penguin", "Dodo", "Quetzal", "Peafowl", "Roadrunner"]
 }
 
 # Special Regional Birds
 regional_birds = {
     "Los Angeles": "Anna's hummingbird",
-    "New York City": "American Goldfinch"
+    "New York City": "Bluejay"
 }
 
 # Base odds for rarities
